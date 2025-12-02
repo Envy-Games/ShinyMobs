@@ -1,5 +1,6 @@
 package com.styenvy.egshiny.util;
 
+import com.styenvy.egshiny.EGShiny;
 import com.styenvy.egshiny.config.ShinyConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.Registries;
@@ -8,6 +9,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -28,6 +31,11 @@ public class ShinyMobHelper {
 
     private static final Random RANDOM = new Random();
     private static final String SHINY_TAG = "IsShinyMob";
+
+    // Tag for mobs that are allowed to wear shiny netherite gear
+    private static final TagKey<EntityType<?>> SHINY_GEAR_COMPAT_TAG =
+            TagKey.create(Registries.ENTITY_TYPE,
+                    ResourceLocation.parse(EGShiny.MODID + ":shiny_gear_compatible"));
 
     // Team colors for glow effect (used when profile.randomTeamColor == true)
     private static final ChatFormatting[] TEAM_COLORS = {
@@ -64,6 +72,10 @@ public class ShinyMobHelper {
 
         // Resolve the profile for this entity type
         ShinyProfile profile = ShinyProfileRegistry.getProfileFor(entity.getType());
+        if (profile == null) {
+            // This entity type is not configured for shiny behavior yet
+            return;
+        }
 
         // Mark as shiny
         CompoundTag tag = entity.getPersistentData();
@@ -184,7 +196,12 @@ public class ShinyMobHelper {
 
     private static void equipNetheriteGear(LivingEntity entity, ServerLevel level, ShinyProfile profile) {
         // Only meaningful on mobs
-        if (!(entity instanceof Mob)) {
+        if (!(entity instanceof Mob mob)) {
+            return;
+        }
+
+        // Only give gear to compatible mobs (driven by the shiny_gear_compatible entity type tag)
+        if (!isGearCompatibleMob(mob)) {
             return;
         }
 
@@ -204,22 +221,24 @@ public class ShinyMobHelper {
             applyMaxEnchantments(sword, level, EquipmentSlot.MAINHAND);
         }
 
-        entity.setItemSlot(EquipmentSlot.HEAD, helmet);
-        entity.setItemSlot(EquipmentSlot.CHEST, chestplate);
-        entity.setItemSlot(EquipmentSlot.LEGS, leggings);
-        entity.setItemSlot(EquipmentSlot.FEET, boots);
-        entity.setItemSlot(EquipmentSlot.MAINHAND, sword);
+        mob.setItemSlot(EquipmentSlot.HEAD, helmet);
+        mob.setItemSlot(EquipmentSlot.CHEST, chestplate);
+        mob.setItemSlot(EquipmentSlot.LEGS, leggings);
+        mob.setItemSlot(EquipmentSlot.FEET, boots);
+        mob.setItemSlot(EquipmentSlot.MAINHAND, sword);
 
         // Drop chances only exist on Mob, not generic LivingEntity
-        if (entity instanceof Mob mob) {
-            float dropChance = (float) profile.dropChancePerItem();
+        float dropChance = (float) profile.dropChancePerItem();
 
-            mob.setDropChance(EquipmentSlot.HEAD, dropChance);
-            mob.setDropChance(EquipmentSlot.CHEST, dropChance);
-            mob.setDropChance(EquipmentSlot.LEGS, dropChance);
-            mob.setDropChance(EquipmentSlot.FEET, dropChance);
-            mob.setDropChance(EquipmentSlot.MAINHAND, dropChance);
-        }
+        mob.setDropChance(EquipmentSlot.HEAD, dropChance);
+        mob.setDropChance(EquipmentSlot.CHEST, dropChance);
+        mob.setDropChance(EquipmentSlot.LEGS, dropChance);
+        mob.setDropChance(EquipmentSlot.FEET, dropChance);
+        mob.setDropChance(EquipmentSlot.MAINHAND, dropChance);
+    }
+
+    private static boolean isGearCompatibleMob(Mob mob) {
+        return mob.getType().is(SHINY_GEAR_COMPAT_TAG);
     }
 
     private static void applyMaxEnchantments(ItemStack stack, ServerLevel level, EquipmentSlot slot) {

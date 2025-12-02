@@ -6,11 +6,13 @@ public record ShinyProfile(
         double fixedHealthMultiplier,
         boolean useRandomHealth,
         double damageMultiplier,
+        boolean hardShiny,
         boolean equipNetherite,
         boolean maxEnchantments,
         double dropChancePerItem,
         boolean useGlow,
         boolean randomTeamColor,
-        String fixedTeamColorKey // e.g. "gold", "red", "green"
+        String fixedTeamColorKey,
+        String shinyLootTableId
 ) {
 }

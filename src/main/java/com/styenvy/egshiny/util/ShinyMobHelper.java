@@ -32,6 +32,7 @@ public class ShinyMobHelper {
 
     private static final Random RANDOM = new Random();
     private static final String SHINY_TAG = "IsShinyMob";
+    private static final String HARD_SHINY_TAG = "IsHardShinyMob";
 
     // Tag for mobs that are allowed to wear shiny netherite gear
     private static final TagKey<EntityType<?>> SHINY_GEAR_COMPAT_TAG =
@@ -58,9 +59,16 @@ public class ShinyMobHelper {
     };
 
     /**
-     * Main entry point: make an entity shiny using its ShinyProfile.
+     * Main entry point: make an entity shiny using its ShinyProfile (normal mode).
      */
     public static void makeShiny(LivingEntity entity, ServerLevel level) {
+        makeShiny(entity, level, false);
+    }
+
+    /**
+     * Main entry point: make an entity shiny using its ShinyProfile, with optional hard mode.
+     */
+    public static void makeShiny(LivingEntity entity, ServerLevel level, boolean hardMode) {
         // Never affect players – no glow, no gear, nothing
         if (entity instanceof Player) {
             return;
@@ -81,6 +89,11 @@ public class ShinyMobHelper {
         // Mark as shiny
         CompoundTag tag = entity.getPersistentData();
         tag.putBoolean(SHINY_TAG, true);
+
+        // Mark as hard shiny if requested (placeholder: behavior can be layered on later)
+        if (hardMode) {
+            tag.putBoolean(HARD_SHINY_TAG, true);
+        }
 
         // Apply visual effects (glow + team)
         if (profile.useGlow()) {

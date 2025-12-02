@@ -55,7 +55,7 @@ public final class ShinyProfileRegistry {
 
     /**
      * Register built-in per-entity profiles here.
-     * Right now: Zombies get a slightly "juiced" profile.
+     * Zombies and skeletons get "juiced" profiles by default.
      */
     private static void registerDefaultProfiles() {
         ShinyProfile base = createBaseProfileFromConfig();
@@ -67,7 +67,7 @@ public final class ShinyProfileRegistry {
                 base.fixedHealthMultiplier() * 1.5,
                 base.useRandomHealth(),
                 base.damageMultiplier() * 1.25,
-                true,                  // hardShiny – zombies are tougher by default
+                false,
                 true,                  // equip netherite even if global is off
                 base.maxEnchantments(),
                 base.dropChancePerItem(),
@@ -76,13 +76,209 @@ public final class ShinyProfileRegistry {
                 "dark_green",          // fixed color for zombies
                 "egshiny:shiny/zombie" // shinyLootTableId – custom loot table for shiny zombies
         );
-
         PROFILES.put(EntityType.ZOMBIE, zombieProfile);
 
-        // As you expand, just add more:
-        // PROFILES.put(EntityType.SKELETON, skeletonProfile);
-        // PROFILES.put(EntityType.CREEPER, creeperProfile);
-        // etc.
+        // Skeletons: slightly tankier but much higher damage, gray glow, always netherite
+        ShinyProfile skeletonProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.2,
+                base.maxHealthMultiplier() * 1.2,
+                base.fixedHealthMultiplier() * 1.2,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.4,
+                false,
+                true,                    // always equip netherite
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,                   // fixed color, not random
+                "gray",                  // fixed color for skeletons
+                "egshiny:shiny/skeleton" // shinyLootTableId – custom loot table for shiny skeletons
+        );
+        PROFILES.put(EntityType.SKELETON, skeletonProfile);
+
+        // --------------------------------------------------------------------
+        // New profiles with loot tables
+        // --------------------------------------------------------------------
+
+        // 1. Creeper – not hard, big damage boost, creeper-green glow
+        ShinyProfile creeperProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.2,
+                base.maxHealthMultiplier() * 1.2,
+                base.fixedHealthMultiplier() * 1.2,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.6,
+                false,                     // not hard
+                base.equipNetherite(),
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "green",
+                "egshiny:shiny/creeper"
+        );
+        PROFILES.put(EntityType.CREEPER, creeperProfile);
+
+        // 2. Wither – hard, very tanky and strong, dark_gray glow
+        ShinyProfile witherProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 2.0,
+                base.maxHealthMultiplier() * 2.0,
+                base.fixedHealthMultiplier() * 2.0,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 2.0,
+                true,                      // hard
+                true,                      // always netherite-style gear if applicable
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "dark_gray",
+                "egshiny:shiny/wither"
+        );
+        PROFILES.put(EntityType.WITHER, witherProfile);
+
+        // 3. Warden – hard, extremely tanky and strong, dark_aqua glow
+        ShinyProfile wardenProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 2.5,
+                base.maxHealthMultiplier() * 2.5,
+                base.fixedHealthMultiplier() * 2.5,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 2.2,
+                true,                      // hard
+                false,                     // no armor equip (warden doesn't use armor)
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "dark_aqua",
+                "egshiny:shiny/warden"
+        );
+        PROFILES.put(EntityType.WARDEN, wardenProfile);
+
+        // 4. Wither Skeleton – not hard, high damage, dark_gray glow, always netherite
+        ShinyProfile witherSkeletonProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.5,
+                base.maxHealthMultiplier() * 1.5,
+                base.fixedHealthMultiplier() * 1.5,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.8,
+                false,                     // not hard
+                true,                      // always netherite
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "dark_gray",
+                "egshiny:shiny/wither_skeleton"
+        );
+        PROFILES.put(EntityType.WITHER_SKELETON, witherSkeletonProfile);
+
+        // 5. Pillager – not hard, ranged bruiser, dark_red glow
+        ShinyProfile pillagerProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.3,
+                base.maxHealthMultiplier() * 1.3,
+                base.fixedHealthMultiplier() * 1.3,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.6,
+                false,                     // not hard
+                base.equipNetherite(),
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "dark_red",
+                "egshiny:shiny/pillager"
+        );
+        PROFILES.put(EntityType.PILLAGER, pillagerProfile);
+
+        // 6. Ravager – hard, raid mini-boss, dark_purple glow
+        ShinyProfile ravagerProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 2.2,
+                base.maxHealthMultiplier() * 2.2,
+                base.fixedHealthMultiplier() * 2.2,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 2.0,
+                true,                      // hard
+                false,                     // no armor equip (ravager doesn't use armor)
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "dark_purple",
+                "egshiny:shiny/ravager"
+        );
+        PROFILES.put(EntityType.RAVAGER, ravagerProfile);
+
+        // 7. Evoker – not hard, spell glass cannon, gold glow
+        ShinyProfile evokerProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.3,
+                base.maxHealthMultiplier() * 1.3,
+                base.fixedHealthMultiplier() * 1.3,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.7,
+                false,                     // not hard
+                base.equipNetherite(),
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "gold",
+                "egshiny:shiny/evoker"
+        );
+        PROFILES.put(EntityType.EVOKER, evokerProfile);
+
+        // 8. Vindicator – not hard, melee bruiser, red glow
+        ShinyProfile vindicatorProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.4,
+                base.maxHealthMultiplier() * 1.4,
+                base.fixedHealthMultiplier() * 1.4,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.8,
+                false,                     // not hard
+                base.equipNetherite(),
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "red",
+                "egshiny:shiny/vindicator"
+        );
+        PROFILES.put(EntityType.VINDICATOR, vindicatorProfile);
+
+        // 9. Witch – not hard, support caster, dark_purple glow
+        ShinyProfile witchProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.3,
+                base.maxHealthMultiplier() * 1.3,
+                base.fixedHealthMultiplier() * 1.3,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.5,
+                false,                     // not hard
+                false,                     // witches don't really use armor visually
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "dark_purple",
+                "egshiny:shiny/witch"
+        );
+        PROFILES.put(EntityType.WITCH, witchProfile);
+
+        // 10. Zombie Villager – not hard, similar to zombie but themed, dark_green glow
+        ShinyProfile zombieVillagerProfile = new ShinyProfile(
+                base.minHealthMultiplier() * 1.4,
+                base.maxHealthMultiplier() * 1.4,
+                base.fixedHealthMultiplier() * 1.4,
+                base.useRandomHealth(),
+                base.damageMultiplier() * 1.3,
+                false,                     // not hard
+                true,                      // always netherite (fits with shiny undead theme)
+                base.maxEnchantments(),
+                base.dropChancePerItem(),
+                base.useGlow(),
+                false,
+                "dark_green",
+                "egshiny:shiny/zombie_villager"
+        );
+        PROFILES.put(EntityType.ZOMBIE_VILLAGER, zombieVillagerProfile);
     }
 
     /**

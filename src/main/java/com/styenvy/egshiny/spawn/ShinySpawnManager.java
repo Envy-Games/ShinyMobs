@@ -11,14 +11,17 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
-import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Random;
 import java.util.UUID;
@@ -86,6 +89,7 @@ public class ShinySpawnManager {
 
             // Check if it's time to spawn
             if (currentTimer <= 0) {
+                // Natural spawns use the default type (zombie for now)
                 spawnShinyMob(player, level);
 
                 // Reset timer for next spawn
@@ -98,7 +102,18 @@ public class ShinySpawnManager {
         }
     }
 
-    public static boolean spawnShinyMob(ServerPlayer player, ServerLevel level) {
+    /**
+     * Default shiny spawn – used by the timer. Still spawns a zombie for now.
+     */
+    public static void spawnShinyMob(ServerPlayer player, ServerLevel level) {
+        spawnShinyMob(player, level, null);
+    }
+
+    /**
+     * Test / flexible shiny spawn – allows forcing a specific EntityType.
+     * If forcedType is null, defaults to ZOMBIE.
+     */
+    public static boolean spawnShinyMob(ServerPlayer player, ServerLevel level, @Nullable EntityType<?> forcedType) {
         int spawnDistance = ShinyConfig.SPAWN_DISTANCE.get();
 
         // Try to find a valid spawn position
@@ -108,14 +123,18 @@ public class ShinySpawnManager {
             return false;
         }
 
-        // Create the shiny zombie
-        Zombie zombie = EntityType.ZOMBIE.create(level);
-        if (zombie == null) {
+        // Choose entity type: forced type (for tests) or default zombie
+        EntityType<?> selectedType = forcedType != null ? forcedType : EntityType.ZOMBIE;
+
+        // Create the entity instance
+        net.minecraft.world.entity.Entity rawEntity = selectedType.create(level);
+        if (!(rawEntity instanceof LivingEntity living)) {
+            EGShiny.LOGGER.warn("Selected shiny entity type {} is not a LivingEntity, aborting.", selectedType);
             return false;
         }
 
-        // Position the zombie
-        zombie.moveTo(
+        // Position the entity
+        living.moveTo(
                 spawnPos.getX() + 0.5,
                 spawnPos.getY(),
                 spawnPos.getZ() + 0.5,
@@ -124,19 +143,25 @@ public class ShinySpawnManager {
         );
 
         // Make it shiny!
-        ShinyMobHelper.makeShiny(zombie, level);
+        boolean hardMode = PlayerShinyData.isHardShinyEnabled(player.getUUID());
+        ShinyMobHelper.makeShiny(living, level, hardMode);
+
+        // Finalize spawn if it's a Mob (not all LivingEntities are Mobs)
+        if (living instanceof Mob mob) {
+            EventHooks.finalizeMobSpawn(
+                    mob,
+                    level,
+                    level.getCurrentDifficultyAt(spawnPos),
+                    MobSpawnType.COMMAND,
+                    null
+            );
+        }
 
         // Spawn the entity
-        zombie.finalizeSpawn(
-                level,
-                level.getCurrentDifficultyAt(spawnPos),
-                MobSpawnType.COMMAND,
-                null
-        );
-        level.addFreshEntity(zombie);
+        level.addFreshEntity(living);
 
         // Track the shiny mob for this player
-        EGShiny.PLAYER_SHINY_MOBS.put(player.getUUID(), zombie);
+        EGShiny.PLAYER_SHINY_MOBS.put(player.getUUID(), living);
 
         // Send notification to player
         if (ShinyConfig.SHOW_SPAWN_MESSAGE.get()) {
@@ -154,18 +179,22 @@ public class ShinySpawnManager {
             player.sendSystemMessage(message);
         }
 
-        EGShiny.LOGGER.info("Spawned shiny mob for player {} at {}", player.getName().getString(), spawnPos);
+        EGShiny.LOGGER.info("Spawned shiny mob ({}) for player {} at {}",
+                level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.ENTITY_TYPE)
+                        .getKey(selectedType),
+                player.getName().getString(),
+                spawnPos
+        );
         return true;
     }
 
     private static BlockPos findSpawnPosition(ServerPlayer player, ServerLevel level, int distance) {
-        Random rand = new Random();
         Vec3 playerPos = player.position();
 
         // Try up to 20 attempts to find a valid spawn position
         for (int attempts = 0; attempts < 20; attempts++) {
             // Generate random angle
-            double angle = rand.nextDouble() * 2 * Math.PI;
+            double angle = RANDOM.nextDouble() * 2 * Math.PI;
 
             // Calculate position at the specified distance
             int x = (int) (playerPos.x + Math.cos(angle) * distance);

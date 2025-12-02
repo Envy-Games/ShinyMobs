@@ -4,6 +4,7 @@ import com.styenvy.egshiny.EGShiny;
 import com.styenvy.egshiny.config.ShinyConfig;
 import com.styenvy.egshiny.data.PlayerShinyData;
 import com.styenvy.egshiny.util.ShinyMobHelper;
+import com.styenvy.egshiny.util.ShinyProfileRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -89,7 +90,7 @@ public class ShinySpawnManager {
 
             // Check if it's time to spawn
             if (currentTimer <= 0) {
-                // Natural spawns use the default type (zombie for now)
+                // Natural spawns use a random eligible shiny profile type
                 spawnShinyMob(player, level);
 
                 // Reset timer for next spawn
@@ -103,7 +104,7 @@ public class ShinySpawnManager {
     }
 
     /**
-     * Default shiny spawn – used by the timer. Still spawns a zombie for now.
+     * Default shiny spawn – used by the timer. Uses the profile registry for random selection.
      */
     public static void spawnShinyMob(ServerPlayer player, ServerLevel level) {
         spawnShinyMob(player, level, null);
@@ -111,7 +112,7 @@ public class ShinySpawnManager {
 
     /**
      * Test / flexible shiny spawn – allows forcing a specific EntityType.
-     * If forcedType is null, defaults to ZOMBIE.
+     * If forcedType is null, a random eligible profile-based type is used.
      */
     public static boolean spawnShinyMob(ServerPlayer player, ServerLevel level, @Nullable EntityType<?> forcedType) {
         int spawnDistance = ShinyConfig.SPAWN_DISTANCE.get();
@@ -123,8 +124,20 @@ public class ShinySpawnManager {
             return false;
         }
 
-        // Choose entity type: forced type (for tests) or default zombie
-        EntityType<?> selectedType = forcedType != null ? forcedType : EntityType.ZOMBIE;
+        // Determine whether hard-mode shinies are enabled for this player
+        boolean hardMode = PlayerShinyData.isHardShinyEnabled(player.getUUID());
+
+        // Choose entity type: forced type (for tests) or a random eligible shiny profile
+        EntityType<?> selectedType;
+        if (forcedType != null) {
+            selectedType = forcedType;
+        } else {
+            selectedType = ShinyProfileRegistry.getRandomShinyEntityType(hardMode, RANDOM);
+            if (selectedType == null) {
+                // Fallback to a basic zombie if the registry is empty for some reason
+                selectedType = EntityType.ZOMBIE;
+            }
+        }
 
         // Create the entity instance
         net.minecraft.world.entity.Entity rawEntity = selectedType.create(level);
@@ -142,8 +155,7 @@ public class ShinySpawnManager {
                 0.0F
         );
 
-        // Make it shiny!
-        boolean hardMode = PlayerShinyData.isHardShinyEnabled(player.getUUID());
+        // Make it shiny (this respects hard-mode + profile.hardShiny())
         ShinyMobHelper.makeShiny(living, level, hardMode);
 
         // Finalize spawn if it's a Mob (not all LivingEntities are Mobs)

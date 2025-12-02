@@ -58,15 +58,16 @@ public class ShinyMobHelper {
             ChatFormatting.WHITE
     };
 
-    /**
-     * Main entry point: make an entity shiny using its ShinyProfile (normal mode).
-     */
     public static void makeShiny(LivingEntity entity, ServerLevel level) {
         makeShiny(entity, level, false);
     }
 
     /**
      * Main entry point: make an entity shiny using its ShinyProfile, with optional hard mode.
+     *
+     * @param entity   The entity to transform into a shiny.
+     * @param level    The server level.
+     * @param hardMode True if the player has hard-mode shinies enabled.
      */
     public static void makeShiny(LivingEntity entity, ServerLevel level, boolean hardMode) {
         // Never affect players – no glow, no gear, nothing
@@ -86,12 +87,18 @@ public class ShinyMobHelper {
             return;
         }
 
+        // If this profile is hard-only, require hard mode to be enabled
+        if (profile.hardShiny() && !hardMode) {
+            // Respect the player's difficulty choice: skip hard-only shinies
+            return;
+        }
+
         // Mark as shiny
         CompoundTag tag = entity.getPersistentData();
         tag.putBoolean(SHINY_TAG, true);
 
-        // Mark as hard shiny if requested (placeholder: behavior can be layered on later)
-        if (hardMode) {
+        // Mark as hard shiny if requested and the profile is actually hard-mode
+        if (hardMode && profile.hardShiny()) {
             tag.putBoolean(HARD_SHINY_TAG, true);
         }
 

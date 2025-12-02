@@ -293,6 +293,35 @@ public final class ShinyProfileRegistry {
     }
 
     /**
+     * Pick a random entity type that has a shiny profile, respecting hard-mode-only profiles.
+     *
+     * @param includeHardProfiles whether to include profiles marked hardShiny() in the pool
+     * @param random              source of randomness
+     * @return a random EntityType with a shiny profile, or null if none are available
+     */
+    public static EntityType<?> getRandomShinyEntityType(boolean includeHardProfiles, java.util.Random random) {
+        ensureInitialized();
+
+        java.util.List<EntityType<?>> candidates = new java.util.ArrayList<>();
+        for (Map.Entry<EntityType<?>, ShinyProfile> entry : PROFILES.entrySet()) {
+            ShinyProfile profile = entry.getValue();
+            if (profile == null) {
+                continue;
+            }
+            if (!profile.hardShiny() || includeHardProfiles) {
+                candidates.add(entry.getKey());
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        int index = random.nextInt(candidates.size());
+        return candidates.get(index);
+    }
+
+    /**
      * Allow other code (or future data-driven loading) to register/override profiles.
      */
     public static void register(EntityType<?> type, ShinyProfile profile) {

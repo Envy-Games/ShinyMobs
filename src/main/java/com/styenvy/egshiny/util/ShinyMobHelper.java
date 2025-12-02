@@ -17,6 +17,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -210,7 +211,16 @@ public class ShinyMobHelper {
         ItemStack chestplate = new ItemStack(Items.NETHERITE_CHESTPLATE);
         ItemStack leggings = new ItemStack(Items.NETHERITE_LEGGINGS);
         ItemStack boots = new ItemStack(Items.NETHERITE_BOOTS);
-        ItemStack sword = new ItemStack(Items.NETHERITE_SWORD);
+
+        // Main-hand weapon:
+        // - Ranged mobs: upgraded version of what they're already using (bow/crossbow)
+        // - Others: netherite sword
+        ItemStack mainHand;
+        if (mob instanceof RangedAttackMob) {
+            mainHand = getUpgradedRangedWeapon(mob);
+        } else {
+            mainHand = new ItemStack(Items.NETHERITE_SWORD);
+        }
 
         // Apply max enchantments if configured in profile
         if (profile.maxEnchantments()) {
@@ -218,14 +228,14 @@ public class ShinyMobHelper {
             applyMaxEnchantments(chestplate, level, EquipmentSlot.CHEST);
             applyMaxEnchantments(leggings, level, EquipmentSlot.LEGS);
             applyMaxEnchantments(boots, level, EquipmentSlot.FEET);
-            applyMaxEnchantments(sword, level, EquipmentSlot.MAINHAND);
+            applyMaxEnchantments(mainHand, level, EquipmentSlot.MAINHAND);
         }
 
         mob.setItemSlot(EquipmentSlot.HEAD, helmet);
         mob.setItemSlot(EquipmentSlot.CHEST, chestplate);
         mob.setItemSlot(EquipmentSlot.LEGS, leggings);
         mob.setItemSlot(EquipmentSlot.FEET, boots);
-        mob.setItemSlot(EquipmentSlot.MAINHAND, sword);
+        mob.setItemSlot(EquipmentSlot.MAINHAND, mainHand);
 
         // Drop chances only exist on Mob, not generic LivingEntity
         float dropChance = (float) profile.dropChancePerItem();
@@ -239,6 +249,32 @@ public class ShinyMobHelper {
 
     private static boolean isGearCompatibleMob(Mob mob) {
         return mob.getType().is(SHINY_GEAR_COMPAT_TAG);
+    }
+
+    /**
+     * For ranged mobs: give them an upgraded version of whatever ranged weapon they're using.
+     * - If they already hold a bow or crossbow, keep that type (new stack, then enchanted).
+     * - Otherwise, choose a sensible default based on mob type.
+     */
+    private static ItemStack getUpgradedRangedWeapon(Mob mob) {
+        ItemStack current = mob.getMainHandItem();
+
+        // If they already hold a bow or crossbow, preserve that type
+        if (current.is(Items.BOW)) {
+            return new ItemStack(Items.BOW);
+        }
+        if (current.is(Items.CROSSBOW)) {
+            return new ItemStack(Items.CROSSBOW);
+        }
+
+        // Fallbacks:
+        // - Pillagers should use crossbows
+        // - Others default to bows
+        if (mob.getType() == EntityType.PILLAGER) {
+            return new ItemStack(Items.CROSSBOW);
+        }
+
+        return new ItemStack(Items.BOW);
     }
 
     private static void applyMaxEnchantments(ItemStack stack, ServerLevel level, EquipmentSlot slot) {

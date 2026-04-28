@@ -1,0 +1,12 @@
+{
+  "entity_type": "minecraft:wither",
+  "min_health_multiplier_scale": 2.0,
+  "max_health_multiplier_scale": 2.0,
+  "fixed_health_multiplier_scale": 2.0,
+  "damage_multiplier_scale": 2.0,
+  "hard_shiny": true,
+  "equip_netherite": true,
+  "random_team_color": false,
+  "fixed_team_color": "dark_gray",
+  "shiny_loot_table": "egshiny:shiny/wither"
+}

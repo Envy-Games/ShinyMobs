@@ -1,314 +1,63 @@
 package com.styenvy.egshiny.util;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.styenvy.egshiny.EGShiny;
 import com.styenvy.egshiny.config.ShinyConfig;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.tags.TagKey;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.biome.Biome;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 /**
- * Registry that maps entity types to their ShinyProfile.
+ * Registry that maps entity types to reloadable datapack-driven ShinyProfiles.
  *
- * - Each EntityType can have at most one ShinyProfile.
- * - Only entity types explicitly registered here (or via register(...)) are eligible
- *   for shiny behavior.
- * - Profiles are typically based on a "base" config-driven profile created from ShinyConfig.
+ * Profiles are loaded from data/<namespace>/shiny_profiles/*.json.
  */
 public final class ShinyProfileRegistry {
 
+    private static final Gson GSON = new Gson();
     private static final Map<EntityType<?>, ShinyProfile> PROFILES = new HashMap<>();
-    private static boolean initialized = false;
 
     private ShinyProfileRegistry() {
     }
 
-    private static void ensureInitialized() {
-        if (initialized) {
-            return;
-        }
-        initialized = true;
-
-        registerDefaultProfiles();
-    }
-
-    /**
-     * Build a base profile from ShinyConfig. This acts as a factory:
-     * you can derive per-entity profiles by tweaking these values.
-     */
-    private static ShinyProfile createBaseProfileFromConfig() {
-        return new ShinyProfile(
-                ShinyConfig.MIN_HEALTH_MULTIPLIER.get(),
-                ShinyConfig.MAX_HEALTH_MULTIPLIER.get(),
-                ShinyConfig.FIXED_HEALTH_MULTIPLIER.get(),
-                ShinyConfig.USE_RANDOM_HEALTH.get(),
-                ShinyConfig.DAMAGE_MULTIPLIER.get(),
-                false, // hardShiny (global/default: not hard)
-                ShinyConfig.EQUIP_NETHERITE.get(),
-                ShinyConfig.MAX_ENCHANTMENTS.get(),
-                ShinyConfig.DROP_CHANCE_PER_ITEM.get(),
-                ShinyConfig.USE_GLOW_EFFECT.get(),
-                ShinyConfig.RANDOM_TEAM_COLOR.get(),
-                ShinyConfig.FIXED_TEAM_COLOR.get(),
-                null // shinyLootTableId
-        );
-    }
-
-    /**
-     * Register built-in per-entity profiles here.
-     * Zombies and skeletons get "juiced" profiles by default.
-     */
-    private static void registerDefaultProfiles() {
-        ShinyProfile base = createBaseProfileFromConfig();
-
-        // Zombies: tankier and harder hitting, fixed dark_green glow, always netherite
-        ShinyProfile zombieProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.5,
-                base.maxHealthMultiplier() * 1.5,
-                base.fixedHealthMultiplier() * 1.5,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.25,
-                false,
-                true,                  // equip netherite even if global is off
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,                 // not random color
-                "dark_green",          // fixed color for zombies
-                "egshiny:shiny/zombie" // shinyLootTableId – custom loot table for shiny zombies
-        );
-        PROFILES.put(EntityType.ZOMBIE, zombieProfile);
-
-        // Skeletons: slightly tankier but much higher damage, gray glow, always netherite
-        ShinyProfile skeletonProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.2,
-                base.maxHealthMultiplier() * 1.2,
-                base.fixedHealthMultiplier() * 1.2,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.4,
-                false,
-                true,                    // always equip netherite
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,                   // fixed color, not random
-                "gray",                  // fixed color for skeletons
-                "egshiny:shiny/skeleton" // shinyLootTableId – custom loot table for shiny skeletons
-        );
-        PROFILES.put(EntityType.SKELETON, skeletonProfile);
-
-        // --------------------------------------------------------------------
-        // New profiles with loot tables
-        // --------------------------------------------------------------------
-
-        // 1. Creeper – not hard, big damage boost, creeper-green glow
-        ShinyProfile creeperProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.2,
-                base.maxHealthMultiplier() * 1.2,
-                base.fixedHealthMultiplier() * 1.2,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.6,
-                false,                     // not hard
-                base.equipNetherite(),
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "green",
-                "egshiny:shiny/creeper"
-        );
-        PROFILES.put(EntityType.CREEPER, creeperProfile);
-
-        // 2. Wither – hard, very tanky and strong, dark_gray glow
-        ShinyProfile witherProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 2.0,
-                base.maxHealthMultiplier() * 2.0,
-                base.fixedHealthMultiplier() * 2.0,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 2.0,
-                true,                      // hard
-                true,                      // always netherite-style gear if applicable
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "dark_gray",
-                "egshiny:shiny/wither"
-        );
-        PROFILES.put(EntityType.WITHER, witherProfile);
-
-        // 3. Warden – hard, extremely tanky and strong, dark_aqua glow
-        ShinyProfile wardenProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 2.5,
-                base.maxHealthMultiplier() * 2.5,
-                base.fixedHealthMultiplier() * 2.5,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 2.2,
-                true,                      // hard
-                false,                     // no armor equip (warden doesn't use armor)
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "dark_aqua",
-                "egshiny:shiny/warden"
-        );
-        PROFILES.put(EntityType.WARDEN, wardenProfile);
-
-        // 4. Wither Skeleton – not hard, high damage, dark_gray glow, always netherite
-        ShinyProfile witherSkeletonProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.5,
-                base.maxHealthMultiplier() * 1.5,
-                base.fixedHealthMultiplier() * 1.5,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.8,
-                false,                     // not hard
-                true,                      // always netherite
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "dark_gray",
-                "egshiny:shiny/wither_skeleton"
-        );
-        PROFILES.put(EntityType.WITHER_SKELETON, witherSkeletonProfile);
-
-        // 5. Pillager – not hard, ranged bruiser, dark_red glow
-        ShinyProfile pillagerProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.3,
-                base.maxHealthMultiplier() * 1.3,
-                base.fixedHealthMultiplier() * 1.3,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.6,
-                false,                     // not hard
-                base.equipNetherite(),
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "dark_red",
-                "egshiny:shiny/pillager"
-        );
-        PROFILES.put(EntityType.PILLAGER, pillagerProfile);
-
-        // 6. Ravager – hard, raid mini-boss, dark_purple glow
-        ShinyProfile ravagerProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 2.2,
-                base.maxHealthMultiplier() * 2.2,
-                base.fixedHealthMultiplier() * 2.2,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 2.0,
-                true,                      // hard
-                false,                     // no armor equip (ravager doesn't use armor)
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "dark_purple",
-                "egshiny:shiny/ravager"
-        );
-        PROFILES.put(EntityType.RAVAGER, ravagerProfile);
-
-        // 7. Evoker – not hard, spell glass cannon, gold glow
-        ShinyProfile evokerProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.3,
-                base.maxHealthMultiplier() * 1.3,
-                base.fixedHealthMultiplier() * 1.3,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.7,
-                false,                     // not hard
-                base.equipNetherite(),
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "gold",
-                "egshiny:shiny/evoker"
-        );
-        PROFILES.put(EntityType.EVOKER, evokerProfile);
-
-        // 8. Vindicator – not hard, melee bruiser, red glow
-        ShinyProfile vindicatorProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.4,
-                base.maxHealthMultiplier() * 1.4,
-                base.fixedHealthMultiplier() * 1.4,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.8,
-                false,                     // not hard
-                base.equipNetherite(),
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "red",
-                "egshiny:shiny/vindicator"
-        );
-        PROFILES.put(EntityType.VINDICATOR, vindicatorProfile);
-
-        // 9. Witch – not hard, support caster, dark_purple glow
-        ShinyProfile witchProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.3,
-                base.maxHealthMultiplier() * 1.3,
-                base.fixedHealthMultiplier() * 1.3,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.5,
-                false,                     // not hard
-                false,                     // witches don't really use armor visually
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "dark_purple",
-                "egshiny:shiny/witch"
-        );
-        PROFILES.put(EntityType.WITCH, witchProfile);
-
-        // 10. Zombie Villager – not hard, similar to zombie but themed, dark_green glow
-        ShinyProfile zombieVillagerProfile = new ShinyProfile(
-                base.minHealthMultiplier() * 1.4,
-                base.maxHealthMultiplier() * 1.4,
-                base.fixedHealthMultiplier() * 1.4,
-                base.useRandomHealth(),
-                base.damageMultiplier() * 1.3,
-                false,                     // not hard
-                true,                      // always netherite (fits with shiny undead theme)
-                base.maxEnchantments(),
-                base.dropChancePerItem(),
-                base.useGlow(),
-                false,
-                "dark_green",
-                "egshiny:shiny/zombie_villager"
-        );
-        PROFILES.put(EntityType.ZOMBIE_VILLAGER, zombieVillagerProfile);
-    }
-
-    /**
-     * Get the profile for a given entity type.
-     *
-     * @return the ShinyProfile for this type, or null if the type
-     *         is not configured for shiny behavior.
-     */
     public static ShinyProfile getProfileFor(EntityType<?> type) {
-        ensureInitialized();
         return PROFILES.get(type);
     }
 
-    /**
-     * Pick a random entity type that has a shiny profile, respecting hard-mode-only profiles.
-     *
-     * @param includeHardProfiles whether to include profiles marked hardShiny() in the pool
-     * @param random              source of randomness
-     * @return a random EntityType with a shiny profile, or null if none are available
-     */
-    public static EntityType<?> getRandomShinyEntityType(boolean includeHardProfiles, java.util.Random random) {
-        ensureInitialized();
+    public static Set<EntityType<?>> getRegisteredEntityTypes() {
+        return Set.copyOf(PROFILES.keySet());
+    }
 
-        java.util.List<EntityType<?>> candidates = new java.util.ArrayList<>();
+    public static EntityType<?> getRandomShinyEntityType(boolean includeHardProfiles, Random random,
+                                                         net.minecraft.server.level.ServerLevel level,
+                                                         net.minecraft.core.BlockPos pos) {
+        List<EntityType<?>> candidates = new ArrayList<>();
         for (Map.Entry<EntityType<?>, ShinyProfile> entry : PROFILES.entrySet()) {
             ShinyProfile profile = entry.getValue();
             if (profile == null) {
                 continue;
             }
-            if (!profile.hardShiny() || includeHardProfiles) {
+            if ((!profile.hardShiny() || includeHardProfiles) && profile.canSpawnAt(level, pos)) {
                 candidates.add(entry.getKey());
             }
         }
@@ -317,15 +66,145 @@ public final class ShinyProfileRegistry {
             return null;
         }
 
-        int index = random.nextInt(candidates.size());
-        return candidates.get(index);
+        return candidates.get(random.nextInt(candidates.size()));
     }
 
-    /**
-     * Allow other code (or future data-driven loading) to register/override profiles.
-     */
-    public static void register(EntityType<?> type, ShinyProfile profile) {
-        ensureInitialized();
-        PROFILES.put(type, profile);
+    private static void replaceProfiles(Map<EntityType<?>, ShinyProfile> profiles) {
+        PROFILES.clear();
+        PROFILES.putAll(profiles);
+        EGShiny.LOGGER.info("Loaded {} shiny mob profiles", PROFILES.size());
+    }
+
+    public static class ReloadListener extends SimpleJsonResourceReloadListener {
+        public ReloadListener() {
+            super(GSON, "shiny_profiles");
+        }
+
+        @Override
+        protected void apply(Map<ResourceLocation, JsonElement> objects, ResourceManager resourceManager, ProfilerFiller profiler) {
+            Map<EntityType<?>, ShinyProfile> loadedProfiles = new HashMap<>();
+
+            for (Map.Entry<ResourceLocation, JsonElement> entry : objects.entrySet()) {
+                try {
+                    JsonObject json = GsonHelper.convertToJsonObject(entry.getValue(), "shiny profile");
+                    if (!GsonHelper.getAsBoolean(json, "enabled", true)) {
+                        continue;
+                    }
+
+                    ResourceLocation entityTypeId = getResourceLocation(json, "entity_type");
+                    EntityType<?> entityType = BuiltInRegistries.ENTITY_TYPE.getOptional(entityTypeId)
+                            .orElseThrow(() -> new JsonParseException("Unknown entity type: " + entityTypeId));
+
+                    loadedProfiles.put(entityType, parseProfile(json));
+                } catch (RuntimeException exception) {
+                    EGShiny.LOGGER.error("Failed to load shiny profile {}", entry.getKey(), exception);
+                }
+            }
+
+            replaceProfiles(loadedProfiles);
+        }
+    }
+
+    private static ShinyProfile parseProfile(JsonObject json) {
+        ShinyProfile base = createBaseProfileFromConfig();
+
+        return new ShinyProfile(
+                getScaledDouble(json, "min_health_multiplier", "min_health_multiplier_scale", base.minHealthMultiplier()),
+                getScaledDouble(json, "max_health_multiplier", "max_health_multiplier_scale", base.maxHealthMultiplier()),
+                getScaledDouble(json, "fixed_health_multiplier", "fixed_health_multiplier_scale", base.fixedHealthMultiplier()),
+                GsonHelper.getAsBoolean(json, "use_random_health", base.useRandomHealth()),
+                getScaledDouble(json, "damage_multiplier", "damage_multiplier_scale", base.damageMultiplier()),
+                GsonHelper.getAsBoolean(json, "hard_shiny", base.hardShiny()),
+                GsonHelper.getAsBoolean(json, "equip_netherite", base.equipNetherite()),
+                GsonHelper.getAsBoolean(json, "max_enchantments", base.maxEnchantments()),
+                GsonHelper.getAsDouble(json, "drop_chance_per_item", base.dropChancePerItem()),
+                GsonHelper.getAsBoolean(json, "use_glow", base.useGlow()),
+                GsonHelper.getAsBoolean(json, "random_team_color", base.randomTeamColor()),
+                GsonHelper.getAsString(json, "fixed_team_color", base.fixedTeamColorKey()),
+                getOptionalString(json, "shiny_loot_table"),
+                parseResourceLocations(json, "allowed_dimensions"),
+                parseBiomeIds(json, "allowed_biomes"),
+                parseBiomeTags(json, "allowed_biomes")
+        );
+    }
+
+    private static ShinyProfile createBaseProfileFromConfig() {
+        return new ShinyProfile(
+                ShinyConfig.MIN_HEALTH_MULTIPLIER.get(),
+                ShinyConfig.MAX_HEALTH_MULTIPLIER.get(),
+                ShinyConfig.FIXED_HEALTH_MULTIPLIER.get(),
+                ShinyConfig.USE_RANDOM_HEALTH.get(),
+                ShinyConfig.DAMAGE_MULTIPLIER.get(),
+                false,
+                ShinyConfig.EQUIP_NETHERITE.get(),
+                ShinyConfig.MAX_ENCHANTMENTS.get(),
+                ShinyConfig.DROP_CHANCE_PER_ITEM.get(),
+                ShinyConfig.USE_GLOW_EFFECT.get(),
+                ShinyConfig.RANDOM_TEAM_COLOR.get(),
+                ShinyConfig.FIXED_TEAM_COLOR.get(),
+                null,
+                Set.of(),
+                Set.of(),
+                Set.of()
+        );
+    }
+
+    private static double getScaledDouble(JsonObject json, String directKey, String scaleKey, double baseValue) {
+        if (json.has(directKey)) {
+            return GsonHelper.getAsDouble(json, directKey);
+        }
+
+        return baseValue * GsonHelper.getAsDouble(json, scaleKey, 1.0D);
+    }
+
+    @Nullable
+    private static String getOptionalString(JsonObject json, String key) {
+        if (!json.has(key) || json.get(key).isJsonNull()) {
+            return null;
+        }
+
+        return GsonHelper.getAsString(json, key);
+    }
+
+    private static ResourceLocation getResourceLocation(JsonObject json, String key) {
+        return ResourceLocation.parse(GsonHelper.getAsString(json, key));
+    }
+
+    private static Set<ResourceLocation> parseResourceLocations(JsonObject json, String key) {
+        Set<ResourceLocation> values = new HashSet<>();
+        if (!json.has(key)) {
+            return values;
+        }
+
+        JsonArray array = GsonHelper.getAsJsonArray(json, key);
+        for (JsonElement element : array) {
+            String value = GsonHelper.convertToString(element, key);
+            if (!value.startsWith("#")) {
+                values.add(ResourceLocation.parse(value));
+            }
+        }
+
+        return values;
+    }
+
+    private static Set<ResourceLocation> parseBiomeIds(JsonObject json, String key) {
+        return parseResourceLocations(json, key);
+    }
+
+    private static Set<TagKey<Biome>> parseBiomeTags(JsonObject json, String key) {
+        Set<TagKey<Biome>> tags = new HashSet<>();
+        if (!json.has(key)) {
+            return tags;
+        }
+
+        JsonArray array = GsonHelper.getAsJsonArray(json, key);
+        for (JsonElement element : array) {
+            String value = GsonHelper.convertToString(element, key);
+            if (value.startsWith("#")) {
+                tags.add(TagKey.create(Registries.BIOME, ResourceLocation.parse(value.substring(1))));
+            }
+        }
+
+        return tags;
     }
 }

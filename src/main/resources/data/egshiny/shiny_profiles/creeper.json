@@ -1,0 +1,10 @@
+{
+  "entity_type": "minecraft:creeper",
+  "min_health_multiplier_scale": 1.2,
+  "max_health_multiplier_scale": 1.2,
+  "fixed_health_multiplier_scale": 1.2,
+  "damage_multiplier_scale": 1.6,
+  "random_team_color": false,
+  "fixed_team_color": "green",
+  "shiny_loot_table": "egshiny:shiny/creeper"
+}

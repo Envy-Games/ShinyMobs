@@ -27,17 +27,20 @@ import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
 
 import java.util.Random;
+import java.util.Optional;
+import java.util.UUID;
 
 public class ShinyMobHelper {
 
     private static final Random RANDOM = new Random();
     private static final String SHINY_TAG = "IsShinyMob";
     private static final String HARD_SHINY_TAG = "IsHardShinyMob";
+    private static final String OWNER_TAG = "ShinyOwner";
 
     // Tag for mobs that are allowed to wear shiny netherite gear
     private static final TagKey<EntityType<?>> SHINY_GEAR_COMPAT_TAG =
             TagKey.create(Registries.ENTITY_TYPE,
-                    ResourceLocation.parse(EGShiny.MODID + ":shiny_gear_compatible"));
+                    ResourceLocation.fromNamespaceAndPath(EGShiny.MODID, "shiny_gear_compatible"));
 
     // Team colors for glow effect (used when profile.randomTeamColor == true)
     private static final ChatFormatting[] TEAM_COLORS = {
@@ -70,7 +73,7 @@ public class ShinyMobHelper {
      * @param hardMode True if the player has hard-mode shinies enabled.
      */
     public static void makeShiny(LivingEntity entity, ServerLevel level, boolean hardMode) {
-        // Never affect players – no glow, no gear, nothing
+        // Never affect players.
         if (entity instanceof Player) {
             return;
         }
@@ -118,7 +121,7 @@ public class ShinyMobHelper {
         // Set custom name using proper formatting
         String mobName = entity.getType().getDescription().getString();
         entity.setCustomName(
-                Component.literal("★ Shiny " + mobName + " ★")
+                Component.literal("Shiny " + mobName)
                         .withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
         );
         entity.setCustomNameVisible(true);
@@ -132,6 +135,20 @@ public class ShinyMobHelper {
     public static boolean isShiny(LivingEntity entity) {
         CompoundTag tag = entity.getPersistentData();
         return tag.getBoolean(SHINY_TAG);
+    }
+
+    public static void setOwner(LivingEntity entity, UUID ownerUUID) {
+        entity.getPersistentData().putUUID(OWNER_TAG, ownerUUID);
+    }
+
+    public static Optional<UUID> getOwner(LivingEntity entity) {
+        CompoundTag tag = entity.getPersistentData();
+        return tag.hasUUID(OWNER_TAG) ? Optional.of(tag.getUUID(OWNER_TAG)) : Optional.empty();
+    }
+
+    public static void cleanupShinyVisuals(LivingEntity entity, ServerLevel level) {
+        entity.setGlowingTag(false);
+        level.getScoreboard().removePlayerFromTeam(entity.getStringUUID());
     }
 
     private static void applyGlowEffect(LivingEntity entity, ServerLevel level, ShinyProfile profile) {
@@ -322,12 +339,25 @@ public class ShinyMobHelper {
                 addEnchantment(enchantments, level, "minecraft:depth_strider", 3);
             }
             case MAINHAND -> {
-                addEnchantment(enchantments, level, "minecraft:sharpness", 5);
-                addEnchantment(enchantments, level, "minecraft:unbreaking", 3);
-                addEnchantment(enchantments, level, "minecraft:mending", 1);
-                addEnchantment(enchantments, level, "minecraft:fire_aspect", 2);
-                addEnchantment(enchantments, level, "minecraft:looting", 3);
-                addEnchantment(enchantments, level, "minecraft:sweeping_edge", 3);
+                if (stack.is(Items.BOW)) {
+                    addEnchantment(enchantments, level, "minecraft:power", 5);
+                    addEnchantment(enchantments, level, "minecraft:punch", 2);
+                    addEnchantment(enchantments, level, "minecraft:flame", 1);
+                    addEnchantment(enchantments, level, "minecraft:unbreaking", 3);
+                    addEnchantment(enchantments, level, "minecraft:mending", 1);
+                } else if (stack.is(Items.CROSSBOW)) {
+                    addEnchantment(enchantments, level, "minecraft:quick_charge", 3);
+                    addEnchantment(enchantments, level, "minecraft:piercing", 4);
+                    addEnchantment(enchantments, level, "minecraft:unbreaking", 3);
+                    addEnchantment(enchantments, level, "minecraft:mending", 1);
+                } else {
+                    addEnchantment(enchantments, level, "minecraft:sharpness", 5);
+                    addEnchantment(enchantments, level, "minecraft:unbreaking", 3);
+                    addEnchantment(enchantments, level, "minecraft:mending", 1);
+                    addEnchantment(enchantments, level, "minecraft:fire_aspect", 2);
+                    addEnchantment(enchantments, level, "minecraft:looting", 3);
+                    addEnchantment(enchantments, level, "minecraft:sweeping_edge", 3);
+                }
             }
             default -> {
                 // OFFHAND or anything else: no special enchants

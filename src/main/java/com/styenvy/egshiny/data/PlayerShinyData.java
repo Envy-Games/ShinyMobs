@@ -8,10 +8,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -29,16 +28,18 @@ public class PlayerShinyData {
     private static final Map<UUID, Boolean> playerHardShinyStatus = new HashMap<>();
 
     public static void load(MinecraftServer server) {
+        playerShinyStatus.clear();
+        playerHardShinyStatus.clear();
+
         // Base enabled / disabled map
         File dataFile = getDataFile(server);
 
         if (dataFile.exists()) {
-            try (FileReader reader = new FileReader(dataFile)) {
+            try (var reader = Files.newBufferedReader(dataFile.toPath(), StandardCharsets.UTF_8)) {
                 Type type = new TypeToken<Map<String, Boolean>>() {}.getType();
                 Map<String, Boolean> stringMap = GSON.fromJson(reader, type);
 
                 if (stringMap != null) {
-                    playerShinyStatus.clear();
                     for (Map.Entry<String, Boolean> entry : stringMap.entrySet()) {
                         try {
                             UUID uuid = UUID.fromString(entry.getKey());
@@ -59,12 +60,11 @@ public class PlayerShinyData {
         // Hard-mode preference map (separate file, optional)
         File hardFile = getHardDataFile(server);
         if (hardFile.exists()) {
-            try (FileReader reader = new FileReader(hardFile)) {
+            try (var reader = Files.newBufferedReader(hardFile.toPath(), StandardCharsets.UTF_8)) {
                 Type type = new TypeToken<Map<String, Boolean>>() {}.getType();
                 Map<String, Boolean> stringMap = GSON.fromJson(reader, type);
 
                 if (stringMap != null) {
-                    playerHardShinyStatus.clear();
                     for (Map.Entry<String, Boolean> entry : stringMap.entrySet()) {
                         try {
                             UUID uuid = UUID.fromString(entry.getKey());
@@ -100,7 +100,7 @@ public class PlayerShinyData {
                 stringMap.put(entry.getKey().toString(), entry.getValue());
             }
 
-            try (FileWriter writer = new FileWriter(dataFile)) {
+            try (var writer = Files.newBufferedWriter(dataFile.toPath(), StandardCharsets.UTF_8)) {
                 GSON.toJson(stringMap, writer);
                 EGShiny.LOGGER.info("Saved shiny mob data for {} players", playerShinyStatus.size());
             }
@@ -121,7 +121,7 @@ public class PlayerShinyData {
                 stringMap.put(entry.getKey().toString(), entry.getValue());
             }
 
-            try (FileWriter writer = new FileWriter(hardFile)) {
+            try (var writer = Files.newBufferedWriter(hardFile.toPath(), StandardCharsets.UTF_8)) {
                 GSON.toJson(stringMap, writer);
                 EGShiny.LOGGER.info("Saved hard-mode shiny data for {} players", playerHardShinyStatus.size());
             }

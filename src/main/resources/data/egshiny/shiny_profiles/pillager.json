@@ -1,0 +1,10 @@
+{
+  "entity_type": "minecraft:pillager",
+  "min_health_multiplier_scale": 1.3,
+  "max_health_multiplier_scale": 1.3,
+  "fixed_health_multiplier_scale": 1.3,
+  "damage_multiplier_scale": 1.6,
+  "random_team_color": false,
+  "fixed_team_color": "dark_red",
+  "shiny_loot_table": "egshiny:shiny/pillager"
+}

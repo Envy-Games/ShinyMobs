@@ -2,6 +2,8 @@ package com.styenvy.egshiny.config;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
+import java.util.List;
+
 public class ShinyConfig {
     public static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
     public static final ModConfigSpec SPEC;
@@ -12,6 +14,8 @@ public class ShinyConfig {
     public static final ModConfigSpec.IntValue SPAWN_DISTANCE;
     public static final ModConfigSpec.BooleanValue SHOW_SPAWN_MESSAGE;
     public static final ModConfigSpec.BooleanValue SHOW_COORDINATES;
+    public static final ModConfigSpec.ConfigValue<String> SPAWN_NOTIFICATION_MODE;
+    public static final ModConfigSpec.IntValue SPAWN_BOSSBAR_SECONDS;
     
     // Mob Settings
     public static final ModConfigSpec.DoubleValue MIN_HEALTH_MULTIPLIER;
@@ -34,6 +38,7 @@ public class ShinyConfig {
     public static final ModConfigSpec.BooleanValue ENABLE_MOD;
     public static final ModConfigSpec.BooleanValue ONE_SHINY_PER_PLAYER;
     public static final ModConfigSpec.BooleanValue NATURAL_DESPAWN;
+    public static final ModConfigSpec.BooleanValue DISABLE_REMOVES_ACTIVE_SHINY;
     
     static {
         BUILDER.push("spawn_settings");
@@ -52,6 +57,12 @@ public class ShinyConfig {
         SHOW_COORDINATES = BUILDER
                 .comment("Include coordinates in spawn message")
                 .define("show_coordinates", true);
+        SPAWN_NOTIFICATION_MODE = BUILDER
+                .comment("How players are notified when a shiny spawns: chat, title, bossbar, or both")
+                .defineInList("spawn_notification_mode", "chat", List.of("chat", "title", "bossbar", "both"));
+        SPAWN_BOSSBAR_SECONDS = BUILDER
+                .comment("How long the spawn bossbar hint remains visible")
+                .defineInRange("spawn_bossbar_seconds", 8, 1, 60);
         BUILDER.pop();
         
         BUILDER.push("mob_settings");
@@ -93,7 +104,24 @@ public class ShinyConfig {
                 .define("random_team_color", true);
         FIXED_TEAM_COLOR = BUILDER
                 .comment("Fixed team color if random is disabled (dark_blue, dark_green, dark_aqua, dark_red, dark_purple, gold, gray, dark_gray, blue, green, aqua, red, light_purple, yellow, white, black)")
-                .define("fixed_team_color", "gold");
+                .defineInList("fixed_team_color", "gold", List.of(
+                        "black",
+                        "dark_blue",
+                        "dark_green",
+                        "dark_aqua",
+                        "dark_red",
+                        "dark_purple",
+                        "gold",
+                        "gray",
+                        "dark_gray",
+                        "blue",
+                        "green",
+                        "aqua",
+                        "red",
+                        "light_purple",
+                        "yellow",
+                        "white"
+                ));
         BUILDER.pop();
         
         BUILDER.push("general_settings");
@@ -106,6 +134,9 @@ public class ShinyConfig {
         NATURAL_DESPAWN = BUILDER
                 .comment("Allow shiny mobs to despawn naturally")
                 .define("natural_despawn", true);
+        DISABLE_REMOVES_ACTIVE_SHINY = BUILDER
+                .comment("Remove a player's active shiny mob when they run /shiny off")
+                .define("disable_removes_active_shiny", true);
         BUILDER.pop();
         
         SPEC = BUILDER.build();

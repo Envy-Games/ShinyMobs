@@ -1,0 +1,11 @@
+{
+  "entity_type": "minecraft:skeleton",
+  "min_health_multiplier_scale": 1.2,
+  "max_health_multiplier_scale": 1.2,
+  "fixed_health_multiplier_scale": 1.2,
+  "damage_multiplier_scale": 1.4,
+  "equip_netherite": true,
+  "random_team_color": false,
+  "fixed_team_color": "gray",
+  "shiny_loot_table": "egshiny:shiny/skeleton"
+}

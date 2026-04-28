@@ -1,0 +1,11 @@
+{
+  "entity_type": "minecraft:zombie",
+  "min_health_multiplier_scale": 1.5,
+  "max_health_multiplier_scale": 1.5,
+  "fixed_health_multiplier_scale": 1.5,
+  "damage_multiplier_scale": 1.25,
+  "equip_netherite": true,
+  "random_team_color": false,
+  "fixed_team_color": "dark_green",
+  "shiny_loot_table": "egshiny:shiny/zombie"
+}

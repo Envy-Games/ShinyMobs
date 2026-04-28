@@ -6,6 +6,7 @@ import com.styenvy.egshiny.config.ShinyConfig;
 import com.styenvy.egshiny.data.PlayerShinyData;
 import com.styenvy.egshiny.events.ShinyEventHandler;
 import com.styenvy.egshiny.spawn.ShinySpawnManager;
+import com.styenvy.egshiny.util.ShinyProfileRegistry;
 import net.minecraft.world.entity.Entity;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -13,6 +14,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
@@ -45,6 +47,7 @@ public class EGShiny {
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
         NeoForge.EVENT_BUS.addListener(this::onServerStopping);
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
+        NeoForge.EVENT_BUS.addListener(this::addReloadListeners);
         
         LOGGER.info("EG Shiny Mobs mod initialized!");
     }
@@ -69,5 +72,9 @@ public class EGShiny {
     
     private void registerCommands(RegisterCommandsEvent event) {
         ShinyCommands.register(event.getDispatcher());
+    }
+
+    private void addReloadListeners(AddReloadListenerEvent event) {
+        event.addListener(new ShinyProfileRegistry.ReloadListener());
     }
 }
